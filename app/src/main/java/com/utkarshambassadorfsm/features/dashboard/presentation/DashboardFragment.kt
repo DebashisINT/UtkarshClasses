@@ -2988,11 +2988,13 @@ class DashboardFragment : BaseFragment(), View.OnClickListener, HBRecorderListen
 
         //callUserConfigApi()   // calling instead of checkToCallAssignedDDListApi()
         //getBeatListApi()
-        getProductRateListApi()
+        //getProductRateListApi()
+
+        getBeatListApi()
     }
 
 
-    private fun getProductRateListApi() {
+    /*private fun getProductRateListApi() {
         if(Pref.isOrderShow){
             Timber.d("api_call_dash  getProductRateListApi()")
             val repository = ProductListRepoProvider.productListProvider()
@@ -3021,8 +3023,16 @@ class DashboardFragment : BaseFragment(), View.OnClickListener, HBRecorderListen
                                 getBeatListApi()
                             }
                         } else {
-                            progress_wheel.stopSpinning()
-                            getBeatListApi()
+
+                            doAsync {
+                                AppDatabase.getDBInstance()?.productRateDao()?.deleteAll()
+                                val rateList: ArrayList<ProductRateEntity> = AppDatabase.getDBInstance()?.productRateDao()?.getAllBlank() as ArrayList<ProductRateEntity>
+                                AppDatabase.getDBInstance()?.productRateDao()?.insertAll(rateList)
+                                uiThread {
+                                    progress_wheel.stopSpinning()
+                                    getBeatListApi()
+                                }
+                            }
                         }
 
                     }, { error ->
@@ -3036,7 +3046,7 @@ class DashboardFragment : BaseFragment(), View.OnClickListener, HBRecorderListen
             Timber.d("API_Optimization getProductRateListApi DashFrag : disable " +  "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name )
             getBeatListApi()
         }
-    }
+    }*/
 
     private fun getBeatListApi() {
         // Begin Rev 12.0 DashboardFragment AppV 4.0.8 Suman    24/04/2023 Beat api fetch updation 0025898
@@ -3346,26 +3356,80 @@ class DashboardFragment : BaseFragment(), View.OnClickListener, HBRecorderListen
 
                                         uiThread {
                                             progress_wheel.stopSpinning()
-                                            getSelectedRouteListRefresh()
+                                            getProductRateListApi()
                                         }
                                     }
                                 } else {
                                     progress_wheel.stopSpinning()
-                                    getSelectedRouteListRefresh()
+                                    getProductRateListApi()
                                 }
                             } else {
                                 progress_wheel.stopSpinning()
-                                getSelectedRouteListRefresh()
+                                getProductRateListApi()
                             }
 
                         }, { error ->
                             error.printStackTrace()
                             progress_wheel.stopSpinning()
-                            getSelectedRouteListRefresh()
+                            getProductRateListApi()
                         })
         )
         }else{
             Timber.d("API_Optimization getProductList DashFrag : disable " +  "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name )
+            getSelectedRouteListRefresh()
+        }
+    }
+
+    private fun getProductRateListApi() {
+        if(Pref.isOrderShow){
+            Timber.d("api_call_dash  getProductRateListApi()")
+            val repository = ProductListRepoProvider.productListProvider()
+            progress_wheel.spin()
+            BaseActivity.compositeDisposable.add(
+                repository.getProductRateOfflineListNew()
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribeOn(Schedulers.io())
+                    .subscribe({ result ->
+                        //val response = result as ProductListOfflineResponseModel
+                        val response = result as ProductListOfflineResponseModelNew
+                        BaseActivity.isApiInitiated = false
+                        if (response.status == NetworkConstant.SUCCESS) {
+                            val productRateList = response.product_rate_list
+                            if (productRateList != null && productRateList.size > 0) {
+                                doAsync {
+                                    AppDatabase.getDBInstance()!!.productRateDao().deleteAll()
+                                    AppDatabase.getDBInstance()?.productRateDao()?.insertAll(productRateList)
+                                    uiThread {
+                                        progress_wheel.stopSpinning()
+                                        getSelectedRouteListRefresh()
+                                    }
+                                }
+                            } else {
+                                progress_wheel.stopSpinning()
+                                getSelectedRouteListRefresh()
+                            }
+                        } else {
+
+                            doAsync {
+                                AppDatabase.getDBInstance()?.productRateDao()?.deleteAll()
+                                val rateList: ArrayList<ProductRateEntity> = AppDatabase.getDBInstance()?.productRateDao()?.getAllBlank() as ArrayList<ProductRateEntity>
+                                AppDatabase.getDBInstance()?.productRateDao()?.insertAll(rateList)
+                                uiThread {
+                                    progress_wheel.stopSpinning()
+                                    getSelectedRouteListRefresh()
+                                }
+                            }
+                        }
+
+                    }, { error ->
+                        error.printStackTrace()
+                        BaseActivity.isApiInitiated = false
+                        progress_wheel.stopSpinning()
+                        getSelectedRouteListRefresh()
+                    })
+            )
+        }else{
+            Timber.d("API_Optimization getProductRateListApi DashFrag : disable " +  "Time : " + AppUtils.getCurrentDateTime() + ", USER :" + Pref.user_name )
             getSelectedRouteListRefresh()
         }
     }
